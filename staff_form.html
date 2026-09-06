@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Staff Allocation</title>
+    <style>
+        body{
+            font-family:Arial;
+            background:#e3f2fd;
+            margin:0;
+            padding:20px;
+        }
+
+        h2{
+            text-align:center;
+            color:#0d47a1;
+            margin-bottom:20px;
+        }
+
+        .error-box{
+            width:70%;
+            margin:20px auto;
+            background:#ffebee;
+            color:#c62828;
+            border:1px solid #ef9a9a;
+            padding:12px;
+            border-radius:8px;
+            text-align:center;
+            font-weight:bold;
+        }
+
+        table{
+            width:80%;
+            margin:30px auto;
+            background:white;
+            border-collapse:collapse;
+            box-shadow:0 4px 10px rgba(0,0,0,0.15);
+        }
+
+        td,th{
+            border:1px solid #1e88e5;
+            padding:10px;
+            text-align:center;
+        }
+
+        th{
+            background:#0d47a1;
+            color:white;
+        }
+
+        select{
+            padding:8px;
+            width:90%;
+            border:1px solid #1e88e5;
+            border-radius:5px;
+        }
+
+        button{
+            padding:10px 20px;
+            background:#0d47a1;
+            color:white;
+            border:none;
+            border-radius:6px;
+            cursor:pointer;
+        }
+
+        button:hover{
+            background:#08306b;
+        }
+
+        .back-btn{
+            display:block;
+            width:200px;
+            margin:20px auto;
+            text-align:center;
+            padding:10px;
+            background:#0d47a1;
+            color:white;
+            text-decoration:none;
+            border-radius:6px;
+        }
+
+        .back-btn:hover{
+            background:#08306b;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h2>{{ staff_type }} STAFF ALLOCATION</h2>
+
+    {% if error %}
+    <div class="error-box">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="/save_staff">
+
+        <input type="hidden" name="staff_type" value="{{ staff_type }}">
+
+        <table>
+            <tr>
+                <th>Batch</th>
+                <th>Subject</th>
+                <th>Lab</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Staff Name</th>
+            </tr>
+
+            {% for b in batches %}
+            <tr>
+                <td>{{ b.batch_id }}</td>
+                <td>{{ b.subject }}</td>
+                <td>{{ b.lab_name }}</td>
+                <td>{{ b.exam_date.strftime('%d-%m-%Y') if b.exam_date else '' }}</td>
+                <td>{{ b.exam_time }}</td>
+                <td>
+                    {% if staff_type == "INTERNAL" %}
+                    <select name="staff_{{ b.id }}"
+                            class="internal-staff-select"
+                            data-date="{{ b.exam_date }}"
+                            data-time="{{ b.exam_time }}">
+                        <option value="">Select Staff</option>
+                        {% for staff in internal_staff_options %}
+                        <option value="{{ staff }}"
+                            {% if b.selected_staff == staff %}selected{% endif %}>
+                            {{ staff }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <input type="text"
+                           name="staff_{{ b.id }}"
+                           value="{{ b.selected_staff }}"
+                           placeholder="Enter external staff name"
+                           style="padding:8px; width:90%; border:1px solid #1e88e5; border-radius:5px;">
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+
+        <center>
+            <button type="submit">Save Allocation</button>
+        </center>
+
+    </form>
+
+    <a href="/staff_menu" class="back-btn">⬅ Back</a>
+
+<script>
+function updateInternalStaffDropdowns() {
+    const selects = document.querySelectorAll(".internal-staff-select");
+
+    selects.forEach(currentSelect => {
+        const currentDate = currentSelect.dataset.date;
+        const currentTime = currentSelect.dataset.time;
+        const currentValue = currentSelect.value;
+
+        // collect selected staff for same date + time from other rows
+        const usedStaff = new Set();
+
+        selects.forEach(otherSelect => {
+            if (
+                otherSelect !== currentSelect &&
+                otherSelect.dataset.date === currentDate &&
+                otherSelect.dataset.time === currentTime &&
+                otherSelect.value
+            ) {
+                usedStaff.add(otherSelect.value);
+            }
+        });
+
+        // enable all options first
+        Array.from(currentSelect.options).forEach(option => {
+            option.disabled = false;
+        });
+
+        // disable already-used staff in same date + time
+        Array.from(currentSelect.options).forEach(option => {
+            if (
+                option.value &&
+                usedStaff.has(option.value) &&
+                option.value !== currentValue
+            ) {
+                option.disabled = true;
+            }
+        });
+    });
+}
+
+// run once when page loads
+updateInternalStaffDropdowns();
+
+// run whenever a dropdown value changes
+document.querySelectorAll(".internal-staff-select").forEach(select => {
+    select.addEventListener("change", updateInternalStaffDropdowns);
+});
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Automated Practical Exam Timetable - Step 1</title>
+
+<style>
+body{
+    font-family: Arial;
+    background:#e3f2fd;
+    margin:0;
+}
+
+.header{
+    background:#0d47a1;
+    color:white;
+    text-align:center;
+    padding:20px;
+}
+
+form{
+    max-width:750px;
+    margin:30px auto;
+    background:white;
+    padding:25px;
+    border-radius:12px;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+}
+
+fieldset{
+    border:1px solid #1e88e5;
+    border-radius:8px;
+    padding:15px;
+    margin-bottom:20px;
+}
+
+legend{
+    font-weight:bold;
+    color:#0d47a1;
+}
+
+.form-row{
+    display:flex;
+    align-items:center;
+    margin-bottom:12px;
+}
+
+.form-row label{
+    width:200px;
+    font-weight:bold;
+}
+
+.form-row input,
+.form-row select{
+    flex:1;
+    padding:6px;
+    border-radius:5px;
+    border:1px solid #1e88e5;
+}
+
+.btn{
+    background:#0d47a1;
+    color:white;
+    border:none;
+    padding:10px 20px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.btn:hover{
+    background:#08306b;
+}
+
+.date-tags{
+    margin-left:200px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+}
+
+.date-tag{
+    background:#e3f2fd;
+    border:1px solid #1e88e5;
+    padding:4px 8px;
+    border-radius:16px;
+}
+.date-tag button{
+    border:none;
+    background:transparent;
+    color:red;
+    cursor:pointer;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+<h1>Automated Practical Examination Timetable Generator</h1>
+
+</div>
+
+<form onsubmit="goToStep2(); return false;">
+
+<fieldset>
+<legend>Course Details</legend>
+
+<div class="form-row">
+<label>Course</label>
+<select id="course">
+<option value="BCA">BCA</option>
+<option value="BSC">BSC</option>
+</select>
+</div>
+
+<div class="form-row">
+<label>Academic Year</label>
+<select id="academic_year"></select>
+</div>
+
+<div class="form-row">
+<label>Semester</label>
+<select id="semester">
+<option value="">--Select--</option>
+<option value="Odd">Odd</option>
+<option value="Even">Even</option>
+</select>
+</div>
+
+</fieldset>
+
+<fieldset>
+<legend>Exam Dates</legend>
+
+<div class="form-row">
+<label>Start Date</label>
+<input type="date" id="start_date">
+</div>
+
+<div class="form-row">
+<label>End Date</label>
+<input type="date" id="end_date">
+</div>
+
+<div class="form-row">
+<label>Exclude Date</label>
+<input type="date" id="exclude_date">
+<button type="button" class="btn" onclick="addExclude()">Add</button>
+</div>
+
+<div id="excludedDates" class="date-tags"></div>
+
+</fieldset>
+
+<!-- ✅ NEW SESSION SECTION (ONLY ADDITION) -->
+<fieldset>
+<legend>Session Details</legend>
+
+<div class="form-row">
+<label>No. of Sessions / Day</label>
+<select id="sessions" onchange="createSessions()">
+<option value="">--Select--</option>
+<option value="1">1 Session</option>
+<option value="2">2 Sessions</option>
+<option value="3">3 Sessions</option>
+</select>
+</div>
+
+<div id="sessionTimings"></div>
+
+</fieldset>
+<!-- ✅ END ADDITION -->
+
+<center>
+<button class="btn">Next ➜</button>
+</center>
+
+</form>
+
+<script>
+let excludedDates=[];
+
+/* Auto academic year */
+window.onload=function(){
+    const y=new Date().getFullYear();
+    academic_year.innerHTML=
+    `<option>${y-1}-${String(y).slice(2)}</option>
+     <option>${y}-${String(y+1).slice(2)}</option>`;
+
+    // DISABLE TODAY & PAST DATES
+    const today = new Date();
+    today.setDate(today.getDate() + 1);
+
+    const minDate = today.toISOString().split("T")[0];
+
+    document.getElementById("start_date").min = minDate;
+    document.getElementById("end_date").min = minDate;
+
+        // RESTORE SAVED VALUES ONLY AFTER ERROR
+    const savedSemester = localStorage.getItem("savedSemester");
+    const savedStartDate = localStorage.getItem("savedStartDate");
+    const savedEndDate = localStorage.getItem("savedEndDate");
+
+    if(savedSemester){
+        document.getElementById("semester").value = savedSemester;
+    }
+
+    if(savedStartDate){
+        document.getElementById("start_date").value = savedStartDate;
+        document.getElementById("end_date").min = savedStartDate;
+    }
+
+    if(savedEndDate){
+        document.getElementById("end_date").value = savedEndDate;
+    }
+
+    // clear after restoring once
+    localStorage.removeItem("savedSemester");
+    localStorage.removeItem("savedStartDate");
+    localStorage.removeItem("savedEndDate");
+}
+/* UPDATE END DATE LIMIT BASED ON START DATE */
+document.getElementById("start_date").addEventListener("change", function(){
+
+    const start = this.value;
+    const endInput = document.getElementById("end_date");
+
+    endInput.min = start;   
+
+    if(endInput.value && endInput.value < start){
+        endInput.value = "";
+    }
+
+});
+/*  RESTRICT EXCLUDED DATE BETWEEN START & END */
+document.getElementById("start_date")
+        .addEventListener("change", limitExcludeDate);
+
+document.getElementById("end_date")
+        .addEventListener("change", limitExcludeDate);
+
+function limitExcludeDate(){
+
+    const start = document.getElementById("start_date").value;
+    const end = document.getElementById("end_date").value;
+    const exclude = document.getElementById("exclude_date");
+
+    if(start && end){
+        exclude.min = start;   // cannot select before start
+        exclude.max = end;     // cannot select after end
+    }
+}
+/* ADD EXCLUDED DATE */
+function addExclude(){
+
+    const input = document.getElementById("exclude_date");
+    const start = document.getElementById("start_date").value;
+    const end = document.getElementById("end_date").value;
+
+    const d = input.value;
+
+    // nothing selected
+    if(!d){
+        alert("Select a date first");
+        return;
+    }
+
+    // start/end not selected
+    if(!start || !end){
+        alert("Select start and end date first");
+        return;
+    }
+
+    //  restrict between range
+    if(d < start || d > end){
+        alert("Excluded date must be within exam date range");
+        return;
+    }
+
+    // prevent duplicate
+    if(excludedDates.includes(d)){
+        alert("Date already added");
+        return;
+    }
+
+    excludedDates.push(d);
+    input.value = "";
+
+    renderExcluded();
+}
+
+/* DELETE DATE */
+function removeDate(date){
+    excludedDates = excludedDates.filter(x => x !== date);
+    renderExcluded();
+}
+
+/* DISPLAY BELOW INPUT */
+function renderExcluded(){
+    const container=document.getElementById("excludedDates");
+    container.innerHTML="";
+
+    excludedDates.forEach(d=>{
+        const tag=document.createElement("div");
+        tag.className="date-tag";
+
+        tag.innerHTML = `
+            ${d}
+            <button type="button">✕</button>
+        `;
+
+        tag.querySelector("button").onclick=function(){
+            removeDate(d);
+        };
+
+        container.appendChild(tag);
+    });
+}
+
+/*  CREATE SESSION TIMING INPUTS */
+function createSessions(){
+    const container=document.getElementById("sessionTimings");
+    container.innerHTML="";
+    const count=document.getElementById("sessions").value;
+
+    for(let i=1;i<=count;i++){
+        container.innerHTML+=`
+        <div class="form-row">
+            <label>Session ${i} Timing</label>
+            <input type="text" placeholder="e.g. 09:00 - 12:00">
+        </div>`;
+    }
+}
+
+/* SAVE STEP1 */
+function goToStep2(){
+
+    if(!semester.value || !start_date.value || !end_date.value){
+        alert("Fill all required fields");
+        return;
+    }
+
+    const timings = [];
+
+    document.querySelectorAll("#sessionTimings input").forEach(i=>{
+        if(!i.value){
+            alert("Enter all session timings");
+            throw "Missing timing";
+        }
+        timings.push(i.value);
+    });
+    localStorage.setItem("semester", semester.value);
+    localStorage.setItem("start_date", start_date.value);
+    localStorage.setItem("end_date", end_date.value);
+    localStorage.setItem("excluded_dates", JSON.stringify(excludedDates));
+    fetch("/save_step1",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+            course:course.value,
+            academic_year:academic_year.value,
+            semester:semester.value,
+            start_date:start_date.value,
+            end_date:end_date.value,
+            excluded_dates:excludedDates,
+            sessions: timings      
+        })
+
+    })
+    .then(res=>res.json())
+    .then(data=>{
+        alert(data.message);
+        window.location.href="/details";
+    })
+    .catch(()=>{
+        alert("Error saving step1");
+    });
+}
+</script>
+
+</body>
+</html>

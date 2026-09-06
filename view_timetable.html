@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practical Examination Timetable</title>
+
+<style>
+    * {
+        box-sizing: border-box;
+    }
+
+    body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, Helvetica, sans-serif;
+        background: #ffffff;
+        color: #000000;
+    }
+
+    .page {
+        width: 100%;
+        overflow-x: auto;
+    }
+
+    .title {
+        text-align: center;
+        font-size: 22px;
+        font-weight: bold;
+        margin: 0 0 15px 0;
+    }
+
+    .timetable {
+        border-collapse: collapse;
+        width: 100%;
+        min-width: 1200px;
+        table-layout: fixed;
+        background: #ffffff;
+    }
+
+    .timetable th,
+    .timetable td {
+        border: 1px solid #000000;
+        text-align: center;
+        vertical-align: middle;
+        padding: 7px 5px;
+        font-size: 13px;
+        line-height: 1.2;
+    }
+
+    .timetable th {
+        background: #808080;
+        color: #ffffff;
+        font-weight: bold;
+        height: 42px;
+    }
+
+    .date-cell {
+        white-space: pre-line;
+        font-weight: normal;
+    }
+
+    .day-grey td {
+        background: #d9d9d9;
+    }
+
+    .day-white td {
+        background: #ffffff;
+    }
+
+    .register-cell {
+        text-align: center;
+        word-break: normal;
+        overflow-wrap: anywhere;
+    }
+
+    /* Column widths matching the sample */
+    .col-date    { width: 9%; }
+    .col-time    { width: 9%; }
+    .col-class   { width: 10%; }
+    .col-subject { width: 17%; }
+    .col-batch   { width: 8%; }
+    .col-regno   { width: 35%; }
+    .col-total   { width: 5%; }
+    .col-lab     { width: 7%; }
+
+    .buttons {
+        text-align: center;
+        margin: 22px 0;
+    }
+
+    button {
+        border: 0;
+        padding: 11px 22px;
+        margin: 5px;
+        background: #0d47a1;
+        color: #ffffff;
+        font-size: 14px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    button:hover {
+        background: #08306b;
+    }
+
+    .back-btn {
+        display: block;
+        width: 190px;
+        margin: 15px auto;
+        padding: 10px;
+        text-align: center;
+        background: #0d47a1;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+    }
+
+    @media print {
+        body {
+            padding: 0;
+            background: white;
+        }
+
+        .title,
+        .buttons,
+        .back-btn {
+            display: none;
+        }
+
+        .page {
+            overflow: visible;
+        }
+
+        .timetable {
+            width: 100%;
+            min-width: 0;
+            table-layout: fixed;
+        }
+
+        .timetable th,
+        .timetable td {
+            font-size: 8px;
+            padding: 4px 3px;
+        }
+
+        .timetable th {
+            height: 30px;
+        }
+
+        @page {
+            size: A4 landscape;
+            margin: 8mm;
+        }
+
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    }
+</style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <h2 class="title">Practical Examination Timetable</h2>
+
+    <table class="timetable">
+        <thead>
+            <tr>
+                <th class="col-date">Day &amp; Date</th>
+                <th class="col-time">Time</th>
+                <th class="col-class">Class</th>
+                <th class="col-subject">Practical Subject</th>
+                <th class="col-batch">Batch</th>
+                <th class="col-regno">
+                    Register No. of the candidates assigned
+                </th>
+                <th class="col-total">Total</th>
+                <th class="col-lab">Lab</th>
+            </tr>
+        </thead>
+
+        <tbody>
+        {% if timetable %}
+
+            {% for row in timetable %}
+            <tr class="{% if row.day_index % 2 == 0 %}day-grey{% else %}day-white{% endif %}">
+
+                {% if row.date_rowspan %}
+                <td
+                    class="date-cell"
+                    rowspan="{{ row.date_rowspan }}"
+                >{{ row.day_date }}</td>
+                {% endif %}
+
+                <td>{{ row.exam_time }}</td>
+
+                <td>{{ row.class_name }}</td>
+
+                <td>{{ row.subject }}</td>
+
+                <td>{{ row.batch_id }}</td>
+
+                <td class="register-cell">
+                    {{ row.reg_numbers }}
+                </td>
+
+                <td>{{ row.total }}</td>
+
+                <td>{{ row.lab_name }}</td>
+
+            </tr>
+            {% endfor %}
+
+        {% else %}
+
+            <tr>
+                <td colspan="8">
+                    No timetable generated yet
+                </td>
+            </tr>
+
+        {% endif %}
+        </tbody>
+    </table>
+
+</div>
+
+<div class="buttons">
+    <a href="{{ url_for('timetable.export_excel') }}">
+        <button type="button">Download Excel</button>
+    </a>
+
+    <a href="{{ url_for('timetable.export_pdf') }}">
+        <button type="button">Download PDF</button>
+    </a>
+
+    <a href="{{ url_for('staff.staff_menu') }}">
+        <button type="button">Staff Allocation</button>
+    </a>
+</div>
+
+<a href="{{ url_for('home') }}" class="back-btn">
+    ⬅ Back to Home
+</a>
+
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Step 2 - Labs & Subjects</title>
+
+<style>
+body{
+    font-family:Arial;
+    background:#e3f2fd;
+    margin:0;
+}
+
+h2{
+    background:#0d47a1;
+    color:white;
+    text-align:center;
+    padding:20px;
+    margin:0;
+}
+
+form{
+    max-width:800px;
+    margin:30px auto;
+    background:white;
+    padding:25px;
+    border-radius:12px;
+}
+
+fieldset{
+    border:1px solid #1e88e5;
+    border-radius:8px;
+    padding:15px;
+    margin-bottom:20px;
+}
+
+.form-row{
+    display:flex;
+    gap:10px;
+    margin-bottom:8px;
+}
+
+input,select{
+    padding:6px;
+    border:1px solid #1e88e5;
+    border-radius:5px;
+}
+
+.btn{
+    background:#0d47a1;
+    color:white;
+    border:none;
+    padding:8px 16px;
+    border-radius:6px;
+    cursor:pointer;
+}
+
+.remove-btn{
+    background:red;
+    color:white;
+    border:none;
+    border-radius:5px;
+}
+#labList{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-top:10px;
+}
+
+.lab-tag{
+    background:#e3f2fd;
+    border:1px solid #1e88e5;
+    padding:5px 10px;
+    border-radius:15px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+
+.lab-tag button{
+    border:none;
+    background:transparent;
+    color:red;
+    cursor:pointer;
+    font-weight:bold;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Automated Practical Examination Timetable Generator</h2>
+
+<form>
+
+<!-- LABS -->
+<fieldset>
+<legend>Labs</legend>
+
+<div class="form-row">
+<label>Capacity</label>
+<input type="number" id="lab_capacity">
+</div>
+
+<div class="form-row">
+<input id="labInput" placeholder="Lab Name">
+<button type="button" class="btn" onclick="addLab()">Add</button>
+</div>
+
+<div id="labList"></div>
+
+</fieldset>
+</form>
+
+
+<form id="uploadForm" enctype="multipart/form-data">
+
+<label>Select Students Excel File:</label><br><br>
+
+<input type="file"
+       id="studentFile"
+       name="file"
+       accept=".xlsx,.xls"
+       onchange="autoUpload()"
+       required>
+<p id="uploadStatus" style="color:green; font-weight:bold;"></p>
+</form>
+
+<form>
+<!-- SUBJECTS -->
+<fieldset>
+<legend>Subjects</legend>
+
+<select id="yearSelect" onchange="switchYear()">
+<option value="">Select Year</option>
+<option value="fy">FY</option>
+<option value="sy">SY</option>
+<option value="ty">TY</option>
+</select>
+
+<div id="fy" style="display:none">
+<h3>FY</h3>
+<div id="fySubjects"></div>
+<button type="button" class="btn" onclick="addSubject('fy')">Add</button>
+</div>
+
+<div id="sy" style="display:none">
+<h3>SY</h3>
+<div id="sySubjects"></div>
+<button type="button" class="btn" onclick="addSubject('sy')">Add</button>
+</div>
+
+<div id="ty" style="display:none">
+<h3>TY</h3>
+<div id="tySubjects"></div>
+<button type="button" class="btn" onclick="addSubject('ty')">Add</button>
+</div>
+
+</fieldset>
+
+<center>
+<button type="button" class="btn" onclick="saveAndGenerate()">Generate Timetable</button>
+</center>
+
+</form>
+
+<script>
+let labs=[];
+
+function addLab(){
+
+    const name = labInput.value.trim();
+
+    if(!name){
+        alert("Enter lab name");
+        return;
+    }
+
+    if(labs.includes(name)){
+        alert("Lab already added");
+        return;
+    }
+
+    if(!lab_capacity.value){
+        alert("Enter lab capacity first");
+        return;
+    }
+    labs.push(name);
+    labInput.value="";
+    renderLabs();
+}
+
+function renderLabs(){
+
+    const container = document.getElementById("labList");
+    container.innerHTML="";
+
+    labs.forEach((lab,index)=>{
+
+        const tag=document.createElement("div");
+        tag.className="lab-tag";
+
+        tag.innerHTML=`
+            ${lab}
+            <button onclick="removeLab(${index})">✕</button>
+        `;
+
+        container.appendChild(tag);
+
+    });
+}
+
+function removeLab(index){
+    labs.splice(index,1);
+    renderLabs();
+}
+
+function switchYear(){
+    ["fy","sy","ty"].forEach(y=>document.getElementById(y).style.display="none");
+    if(yearSelect.value)
+        document.getElementById(yearSelect.value).style.display="block";
+}
+
+function addSubject(year){
+    const div=document.createElement("div");
+    div.className="form-row";
+    div.innerHTML=`
+        <input placeholder="Subject Code">
+        <input placeholder="Subject Name">
+        <button type="button" class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+    `;
+
+    document.getElementById(year+"Subjects").appendChild(div);
+}
+
+async function autoUpload(){
+
+    const fileInput = document.getElementById("studentFile");
+    const file = fileInput.files[0];
+
+    if(!file){
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    // Send selected semester
+    const semester = localStorage.getItem("semester") || "Odd";
+    formData.append("semester", semester);
+
+    document.getElementById("uploadStatus").innerText =
+        "Uploading students...";
+
+    try{
+
+        const res = await fetch("/upload_students", {
+            method: "POST",
+            body: formData
+        });
+
+        const data = await res.json();
+
+        console.log("UPLOAD STATUS:", res.status);
+        console.log("UPLOAD RESPONSE:", data);
+
+        if(!res.ok){
+
+            document.getElementById("uploadStatus").innerText =
+                "Upload failed";
+
+            alert(data.message || "Student upload failed");
+
+            return;
+        }
+
+        
+
+        sessionStorage.setItem("studentsUploaded", "yes");
+
+        alert("Students uploaded successfully");
+
+    }
+    catch(error){
+
+        console.error("UPLOAD ERROR:", error);
+
+        document.getElementById("uploadStatus").innerText =
+            "Upload failed";
+
+        alert(
+            "Upload failed.\n\n" +
+            "Make sure Flask is running at http://127.0.0.1:5000"
+        );
+    }
+}
+
+function collectSubjects(){
+
+    const result={fy:[],sy:[],ty:[]};
+    const codes = new Set();   // store subject codes to detect duplicates
+
+    ["fy","sy","ty"].forEach(y=>{
+
+        document.querySelectorAll(`#${y}Subjects .form-row`).forEach(row=>{
+
+            const inputs=row.querySelectorAll("input");
+            const code = inputs[0].value.trim();
+            const name = inputs[1].value.trim();
+
+            if(code && name){
+
+                // check duplicate subject code
+                if(codes.has(code)){
+                    alert("Duplicate subject code not allowed: " + code);
+                    throw "Duplicate subject code";
+                }
+
+                codes.add(code);
+
+                result[y].push({
+                    code: code,
+                    name: name
+                });
+            }
+
+        });
+
+    });
+
+    return result;
+}
+
+async function saveAndGenerate(){
+    const subjects = collectSubjects();
+    const totalSubjects =
+        subjects.fy.length +
+        subjects.sy.length +
+        subjects.ty.length;
+
+    if(totalSubjects === 0){
+        alert("Enter at least one subject");
+        return;
+    }
+
+    try{
+
+        // ---------- LABS ----------
+        let res = await fetch("/add_labs",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                labs:labs,
+                capacity:lab_capacity.value
+            })
+        });
+
+        let text = await res.text();
+        console.log("LABS:", text);
+
+        // ---------- SUBJECTS ----------
+        res = await fetch("/add_subjects",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+                subjects:collectSubjects()
+            })
+        });
+
+        text = await res.text();
+        console.log("SUBJECTS:", text);
+
+        // ---------- GENERATE ----------
+        res = await fetch("/generate_timetable", { method: "POST" });
+        let data = await res.json();
+
+        console.log("TIMETABLE:", data);
+
+        if (!res.ok) {
+            alert(data.message);
+
+            // save Step 2 data before going back
+            localStorage.setItem("savedLabs", JSON.stringify(labs));
+            localStorage.setItem("savedLabCapacity", lab_capacity.value);
+            localStorage.setItem("savedSubjects", JSON.stringify(subjects));
+
+            // save Step 1 data also, so index.html can restore it
+            localStorage.setItem("savedSemester", localStorage.getItem("semester") || "");
+            localStorage.setItem("savedStartDate", localStorage.getItem("start_date") || "");
+            localStorage.setItem("savedEndDate", localStorage.getItem("end_date") || "");
+            localStorage.setItem("savedExcludedDates", localStorage.getItem("excluded_dates") || "[]");
+
+            // save uploaded flag BEFORE redirect
+            alert(data.message);
+            sessionStorage.setItem("studentsUploaded", "yes");
+
+            // go back to Step 1 and change only dates/excluded dates
+            window.location.href = "/timetable_start";
+            return;
+        }
+
+        alert(data.message);
+        localStorage.removeItem("savedLabs");
+        localStorage.removeItem("savedLabCapacity");
+        localStorage.removeItem("savedSubjects");
+
+        localStorage.removeItem("savedSemester");
+        localStorage.removeItem("savedStartDate");
+        localStorage.removeItem("savedEndDate");
+        localStorage.removeItem("savedExcludedDates");
+        localStorage.removeItem("studentsUploaded");
+
+        // success → go to timetable page
+        window.location.href = "/view_timetable";
+
+    }
+    catch(err){
+        console.error(err);
+        alert("Error occurred");
+    }
+}
+function restoreSavedStep2Data() {
+    const savedLabs = localStorage.getItem("savedLabs");
+    const savedLabCapacity = localStorage.getItem("savedLabCapacity");
+    const savedSubjects = localStorage.getItem("savedSubjects");
+
+    if (savedLabCapacity) {
+        document.getElementById("lab_capacity").value = savedLabCapacity;
+    }
+
+    if (savedLabs) {
+        labs = JSON.parse(savedLabs);
+        renderLabs();
+    }
+
+    if (savedSubjects) {
+        const subjectsData = JSON.parse(savedSubjects);
+
+        ["fy", "sy", "ty"].forEach(year => {
+            const container = document.getElementById(year + "Subjects");
+            container.innerHTML = "";
+
+            subjectsData[year].forEach(sub => {
+                const div = document.createElement("div");
+                div.className = "form-row";
+                div.innerHTML = `
+                    <input placeholder="Subject Code" value="${sub.code}">
+                    <input placeholder="Subject Name" value="${sub.name}">
+                    <button type="button" class="remove-btn" onclick="this.parentElement.remove()">✕</button>
+                `;
+                container.appendChild(div);
+            });
+        });
+    }
+}
+document.getElementById("uploadStatus").innerText = "";
+restoreSavedStep2Data();
+
+</script>
+
+</body>
+</html>
+
+
