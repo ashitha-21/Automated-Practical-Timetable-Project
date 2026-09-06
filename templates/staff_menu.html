@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Staff Allocation</title>
+<style>
+body{font-family:Arial;background:#e3f2fd;text-align:center;padding-top:80px;}
+.btn{
+    display:block;
+    width:260px;
+    margin:20px auto;
+    padding:12px;
+    background:#0d47a1;
+    color:white;
+    text-decoration:none;
+    border-radius:8px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Staff Allocation</h2>
+
+<a href="/internal_staff" class="btn">Internal Staff Allocation</a>
+<a href="/external_staff" class="btn">External Staff Allocation</a>
+{% if saved %}
+<a href="/view_staff" class="btn">View Staff Allocation</a>
+{% endif %}
+</body>
+</html>
